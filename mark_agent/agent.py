@@ -2,6 +2,7 @@ from crewai import Agent, Crew, Process, Task
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 import os
+from datetime import datetime
 
 from tools import AvailabilityTool
 
@@ -23,11 +24,19 @@ class MarkAgent:
 
         self.agent = Agent(
             role="Scheduling Assistant",
-            goal="Answer questions about Mark's schedule with exact free and busy timings.",
+            goal=(
+                "Answer questions about Mark's calendar with EXACT free and busy timings. "
+                "Always call the availability tool. "
+                "Return answers in this EXACT format:\n"
+                "AVAILABLE: <comma-separated time ranges or 'None'>\n"
+                "BUSY: <comma-separated time ranges or 'None'>\n"
+                "Do NOT add extra commentary."
+            ),
             backstory=(
-                "You are a helpful scheduling assistant who checks Mark's calendar "
-                "for badminton scheduling. Use the availability tool to answer "
-                "questions about dates, free time, busy time, and exact timings."
+                "You are Mark's scheduling assistant. You ONLY answer calendar questions. "
+                "When asked about 'today', resolve today's date as YYYY-MM-DD and pass it to the tool. "
+                "If the question is unrelated to scheduling, reply: 'I only handle Mark's schedule.' "
+                "Always use the AvailabilityTool before answering — never guess."
             ),
             tools=[AvailabilityTool()],
             llm=self.llm,
@@ -37,8 +46,17 @@ class MarkAgent:
     async def invoke(self, user_question: str) -> str:
         try:
             task = Task(
-                description=f"Answer this question about Mark's schedule: {user_question}",
-                expected_output="A clear answer about Mark's availability with timings if available.",
+                description=(
+                    f"Answer this scheduling question: {user_question}\n"
+                    f"Today's date is {datetime.now().strftime('%Y-%m-%d')}.\n"
+                    "Use the availability tool and return results in the format:\n"
+                    "AVAILABLE: <time ranges>\nBUSY: <time ranges>"
+                ),
+                expected_output=(
+                    "Two lines exactly:\n"
+                    "AVAILABLE: <comma-separated time ranges or 'None'>\n"
+                    "BUSY: <comma-separated time ranges or 'None'>"
+                ),
                 agent=self.agent,
             )
 
